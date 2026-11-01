@@ -1,0 +1,30 @@
+#!/bin/bash
+# ====================================================================
+#  ./compile -- build EPOLL_VANILLA
+#
+#      ./compile            optimised build  -> ./server
+#      ./compile debug      ASan + UBSan     -> ./server_debug
+#
+#  main.c and cJSON.c go on the gcc line. os_tune.c, epoll_helpers.c and
+#  handlers.c are #included by main.c -- do not add them.
+#  Needs OpenSSL 3 dev headers (libssl-dev) and the MySQL client
+#  (mysql_config / libmysqlclient-dev) -- linked even with USE_DATABASE 0.
+# ====================================================================
+set -e
+cd "$(dirname "$0")"
+
+WARN="-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare"
+LIBS="$(mysql_config --libs) -pthread -lssl -lcrypto"
+CFLAGS_MYSQL="$(mysql_config --cflags)"
+
+if [ "$1" = "debug" ]; then
+    OUT=server_debug
+    gcc -std=gnu11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer \
+        $WARN $CFLAGS_MYSQL -pthread -o "$OUT" main.c cJSON.c $LIBS
+else
+    OUT=server
+    gcc -std=gnu11 -O2 -march=native -pipe \
+        $WARN $CFLAGS_MYSQL -pthread -o "$OUT" main.c cJSON.c $LIBS
+fi
+
+echo "built ./$OUT"
