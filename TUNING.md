@@ -97,6 +97,50 @@ LimitNOFILE=1048576
 
 [Install]
 WantedBy=multi-user.target
+
+
+OR
+
+Description=ITL HTTPS multithreaded server
+Documentation=file:/home/user/BACKEND_EPOLL/Backend_epoll/README.md
+
+# Order of operations: wait for dependencies to be up before initializing
+After=network-online.target mysql.service
+
+# Strict demand: refuse to boot if network or mysql fail to start
+Requires=network-online.target mysql.service
+
+# Lifecycle locking: kill this server instantly if network drops or mysql dies
+BindsTo=network-online.target mysql.service
+
+# Crash-loop protection: if it crashes 5 times in 5 mins, slow down but keep attempting via Restart
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStartPre=/bin/bash -c 'LOG="/home/user/BACKEND_EPOLL/Backend_epoll/output.log"; if [ -f "$LOG" ] && [ $(stat -c%%s "$LOG") -gt 536870912 ]; then tail -c 536870912 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"; fi'
+WorkingDirectory=/home/user/BACKEND_EPOLL/Backend_epoll/
+ExecStart=/home/user/BACKEND_EPOLL/Backend_epoll/itl_server_epoll
+User=root
+
+# Uptime Management: auto-restart on crashes or when dependencies recover
+Restart=always
+RestartSec=1s
+
+# Performance limits (High-concurrency epoll socket pool)
+LimitNOFILE=10048576
+
+# Security Hardening
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+PrivateTmp=yes
+ProtectSystem=full
+
+# Native systemd logging
+StandardOutput=append:/home/user/BACKEND_EPOLL/Backend_epoll/output.log
+StandardError=append:/home/user/BACKEND_EPOLL/Backend_epoll/output.log
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 `User=root` is what lets os_tune apply the settings (and the server bind
